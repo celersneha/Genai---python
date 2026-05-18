@@ -74,8 +74,3 @@ Thumbs.db
 *.tmp
 *.temp
 
-# LangGraph / AI app artifacts (optional)
-*.png
-*.jpg
-*.jpeg
-*.pdf
