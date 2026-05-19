@@ -4,7 +4,7 @@ from langgraph.graph import StateGraph, START, END, add_messages
 from typing_extensions import Annotated
 from typing import TypedDict
 
-
+# run through cd Langgraph/3 > python -m o3_Streaming.streaming
 memory = MemorySaver()
 
 class State(TypedDict):
@@ -22,14 +22,50 @@ graph.add_edge("Superbot", END)
 
 graph_builder = graph.compile(checkpointer=memory)
 
-# ## view
-# from IPython.display import Image, display
-# display(Image(graph_builder.get_graph().draw_mermaid_png()))
+config = {"configurable" : {"thread_id" : "1"}}
 
-# # for saving the graph image
-# png_data = graph_builder.get_graph().draw_mermaid_png()
+# graph_builder.invoke({"messages": "Hi, my name is Sneha and I like painting"}, config=config)
 
-# with open("graph.png", "wb") as f:
-#     f.write(png_data)
+## Streaming
 
-# print("Graph image saved!")
+# for chunk in graph_builder.stream({"messages":"Hi, My name is sneha and I like painting"}, config,stream_mode="updates"):
+#     print(chunk)
+
+# Example Output:
+# {
+#     'Superbot': {
+#         'messages': [
+#             AIMessage(content='Hello Sneha! Painting is a wonderful hobby 🎨')
+#         ]
+#     }
+# }
+
+# for chunk in graph_builder.stream({"messages":"Hi, My name is sneha and I like painting"}, config,stream_mode="values"):
+#     print(chunk)
+    
+# Example Output:
+# {
+#     'messages': [
+#         HumanMessage(content='Hi, My name is sneha and I like painting'),
+#         AIMessage(content='Hello Sneha! Painting is a wonderful hobby 🎨')
+#     ]
+# }
+
+import asyncio
+
+config = {
+    "configurable": {
+        "thread_id": "2"
+    }
+}
+
+async def main():
+
+    async for event in graph_builder.astream_events(
+        {"messages": "Hi, My name is sneha and I like painting"},
+        config,
+        version="v2"
+    ):
+        print(event)
+
+asyncio.run(main())
