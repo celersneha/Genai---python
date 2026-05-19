@@ -79,15 +79,15 @@ graph = builder.compile(checkpointer=memory)
 # # print(res["messages"][-1])
 # for m in res["messages"]:
 #     m.pretty_print()
+if __name__ == "__main__":
+    config={"configurable":{"thread_id":"1"}}
 
-config={"configurable":{"thread_id":"1"}}
+    res = graph.invoke({"messages":"Hi my name is Sneha"}, config=config)
+    # print(res["messages"][-1])
+    for m in res["messages"]:
+        m.pretty_print()
 
-res = graph.invoke({"messages":"Hi my name is Sneha"}, config=config)
-# print(res["messages"][-1])
-for m in res["messages"]:
-    m.pretty_print()
-
-res = graph.invoke({"messages":"Hi can you please tell me my name"}, config=config)
-# print(res["messages"][-1])
-for m in res["messages"]:
-    m.pretty_print()
+    res = graph.invoke({"messages":"Hi can you please tell me my name"}, config=config)
+    # print(res["messages"][-1])
+    for m in res["messages"]:
+        m.pretty_print()
