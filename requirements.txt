@@ -9,3 +9,5 @@ arxiv
 wikipedia
 langchain-tavily
 langsmith
+langchain-mcp-adapters
+mcp
