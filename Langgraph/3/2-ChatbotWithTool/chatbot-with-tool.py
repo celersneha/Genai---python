@@ -41,9 +41,13 @@ from typing import TypedDict
 from langgraph.graph import add_messages
 from typing_extensions import Annotated
 from langgraph.prebuilt import tools_condition
+from langgraph.checkpoint.memory import MemorySaver
+
 class State(TypedDict):
     messages: Annotated[list, add_messages]
     
+memory = MemorySaver()
+
 def tool_calling_llm(state:State):
     return {"messages": [llm_with_tools.invoke(state["messages"])]}
 
@@ -56,7 +60,7 @@ builder.add_edge(START, "tool_calling_llm")
 builder.add_conditional_edges("tool_calling_llm" , tools_condition)
 builder.add_edge("tools", "tool_calling_llm")
 
-graph = builder.compile()
+graph = builder.compile(checkpointer=memory)
 
 # ## view
 # from IPython.display import Image, display
@@ -70,8 +74,20 @@ graph = builder.compile()
 
 # print("Graph image saved!")
 
-res = graph.invoke({"messages":"What is the weather today in Indore and then tell me what is 5*2?"})
+# res = graph.invoke({"messages":"What is the weather today in Indore and then tell me what is 5*2?"})
 
+# # print(res["messages"][-1])
+# for m in res["messages"]:
+#     m.pretty_print()
+
+config={"configurable":{"thread_id":"1"}}
+
+res = graph.invoke({"messages":"Hi my name is Sneha"}, config=config)
+# print(res["messages"][-1])
+for m in res["messages"]:
+    m.pretty_print()
+
+res = graph.invoke({"messages":"Hi can you please tell me my name"}, config=config)
 # print(res["messages"][-1])
 for m in res["messages"]:
     m.pretty_print()
