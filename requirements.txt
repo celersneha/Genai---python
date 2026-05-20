@@ -11,3 +11,4 @@ langchain-tavily
 langsmith
 langchain-mcp-adapters
 mcp
+langgraph-checkpoint-sqlite
