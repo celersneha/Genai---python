@@ -1,379 +1,96 @@
-This code builds a **Human-in-the-Loop AI Agent** using LangGraph, where the agent can pause execution, ask for human assistance, wait for a response, and then continue execution from the same point. It combines ReAct architecture, tool calling, checkpointing, and interrupts together 🚀
+- `init_chat_model()` initializes the LLM which performs reasoning and tool calling.
 
----
+- `State(TypedDict)` with `add_messages` stores conversation history inside graph state.
 
-# 1. LLM Initialization
+- `MemorySaver()` acts as a checkpointer so graph state can be saved and resumed after interruption.
 
-```python id="p1a"
-llm = init_chat_model("groq:qwen/qwen3-32b")
+- `@tool` creates the `human_assistance` tool which the LLM can call.
+
+- `interrupt({"query": query})` pauses graph execution and waits for external human input.
+
+- `llm.bind_tools(tools)` binds Tavily Search and human assistance tools with the LLM.
+
+- `chatbot()` node sends conversation history to the LLM and gets either:
+  - direct response
+  - or tool call request.
+
+- `ToolNode(tools)` executes the tools requested by the LLM.
+
+- `tools_condition` checks whether the LLM requested any tool call.
+
+- `graph_builder.add_edge("tools", "chatbot")` creates the ReAct loop:
+
+```text id="r1"
+Reason → Tool Call → Observe Result → Reason Again
 ```
 
-This initializes the Groq-hosted Qwen model which will:
+- `graph.compile(checkpointer=memory)` compiles the graph with checkpointing support.
 
-- reason
-- decide tool usage
-- generate responses
+- `graph.stream()` starts graph execution with the user query.
 
----
+- If the LLM decides human help is needed, it calls `human_assistance()`.
 
-# 2. State Definition
+- `interrupt()` pauses execution and saves checkpoint state.
 
-```python id="p2a"
-class State(TypedDict):
-    messages: Annotated[list, add_messages]
+- `Command(resume={"data": human_response})` resumes graph execution with human feedback.
+
+- The human response is injected back into the tool, returned to the LLM, and the LLM generates the final answer.
+
+**Human Assistance tool**
+
+- `@tool` converts the normal Python function into a LangChain-compatible tool. This allows the LLM to understand the tool’s purpose, generate arguments automatically, and invoke it whenever required during reasoning.
+
+- `def human_assistance(query:str)->str` defines a custom tool that accepts a query string and returns a string response. The query usually contains the problem or request for which the AI needs human intervention.
+
+- The docstring `"Request assistance from a human."` acts as a natural language description for the LLM. During tool selection, the model reads this description to understand:
+  - what the tool does
+  - when it should be used
+  - what kind of input it expects
+
+- `interrupt({"query": query})` is the core Human-in-the-Loop feature in LangGraph. When this line executes:
+  - graph execution pauses immediately
+  - current graph state and checkpoint are saved
+  - control exits the graph temporarily
+  - the graph waits for external human input before continuing
+
+- The payload:
+
+```text id="d1"
+{"query": query}
 ```
 
-The graph state contains:
+contains the information that should be shown to the human. This allows external systems, supervisors, or users to understand what assistance is required.
 
-- `messages` → conversation history
+- Since execution is paused, checkpointing is necessary. `MemorySaver` or another checkpointer stores the graph state so execution can later resume from the exact interruption point instead of restarting the workflow.
 
-`add_messages` automatically appends new messages instead of overwriting them.
+- Later, the graph is resumed using:
 
-So internally state becomes:
-
-```python id="p3a"
-{
-    "messages": [
-        HumanMessage(...),
-        AIMessage(...),
-        ToolMessage(...)
-    ]
-}
+```text id="d2"
+Command(resume={"data": human_response})
 ```
 
----
+This sends external human feedback back into the interrupted graph execution.
 
-# 3. MemorySaver Checkpointer
+- The resumed response gets injected into:
 
-```python id="p4a"
-memory = MemorySaver()
+```text id="d3"
+human_response
 ```
 
-This stores graph checkpoints in memory.
-
-Required because:
-
-- `interrupt()` pauses execution
-- graph must later resume from same state
-
-Without checkpointing:
-❌ interrupts cannot resume properly.
-
----
-
-# 4. Human Assistance Tool
-
-```python id="p5a"
-@tool
-def human_assistance(query:str)->str:
-```
-
-This is a custom LangChain tool.
-
-The LLM can decide to call it.
-
----
-
-# 5. Interrupt Mechanism
-
-```python id="p6a"
-human_response = interrupt({"query": query})
-```
-
-This is the MOST important part.
-
-`interrupt()`:
-
-- pauses graph execution
-- saves current state/checkpoint
-- waits for external human input
-
-Execution stops here temporarily.
-
-Think of it like:
-
-```text id="p7a"
-AI: "I need human help."
-⏸ Graph pauses
-Waiting for human...
-```
-
----
-
-# 6. Returning Human Response
-
-```python id="p8a"
-return human_response["data"]
-```
-
-When graph resumes later:
-
-- human input gets injected
-- tool returns that response back to graph
-
----
-
-# 7. Tool Setup
-
-```python id="p9a"
-tool = TavilySearch(max_results = 2)
-
-tools = [tool, human_assistance]
-```
-
-Available tools:
-
-- Tavily web search
-- Human assistance tool
-
----
-
-# 8. Tool Binding
-
-```python id="p10a"
-llm_with_tools = llm.bind_tools(tools)
-```
-
-Now the LLM can:
-
-- reason about tools
-- generate tool calls automatically
-
----
-
-# 9. Chatbot Node
-
-```python id="p11a"
-def chatbot(state: State):
-    message = llm_with_tools.invoke(state["messages"])
-    return {"messages" : [message]}
-```
-
-This node:
-
-1. sends conversation history to LLM
-2. LLM reasons
-3. may:
-   - answer directly
-   - call tools
-
-Returned AIMessage gets added to state.
-
----
-
-# 10. ToolNode
-
-```python id="p12a"
-tool_node = ToolNode(tools)
-```
-
-This node executes tool calls generated by the LLM.
-
----
-
-# 11. Graph Flow
-
-```python id="p13a"
-START → chatbot
-```
-
-First user message goes to chatbot.
-
----
-
-## Conditional Edge
-
-```python id="p14a"
-graph_builder.add_conditional_edges(
-    "chatbot",
-    tools_condition
-)
-```
-
-LangGraph checks:
-
-```text id="p15a"
-Did LLM request a tool?
-```
-
-If:
-
-- YES → route to ToolNode
-- NO → finish execution
-
----
-
-## Tool Loop
-
-```python id="p16a"
-graph_builder.add_edge("tools", "chatbot")
-```
-
-After tools execute:
-
-- tool results added to messages
-- sent back to LLM again
-
-This creates ReAct cycle:
-
-```text id="p17a"
-Reason → Act → Observe → Reason
-```
-
----
-
-# 12. Graph Compilation
-
-```python id="p18a"
-graph = graph_builder.compile(checkpointer=memory)
-```
-
-Graph compiled with persistence support.
-
-Now interrupts/checkpoints work.
-
----
-
-# 13. First Execution
-
-```python id="p19a"
-events = graph.stream(
-    {"messages": user_input},
-    config,
-    stream_mode="values"
-)
-```
-
-User asks:
-
-```text id="p20a"
-"I need some expert guidance..."
-```
-
----
-
-# 14. What LLM Does
-
-LLM reasons:
-
-```text id="p21a"
-"I should request human assistance."
-```
-
-So it generates tool call:
-
-```text id="p22a"
-human_assistance(query="...")
-```
-
----
-
-# 15. Interrupt Happens
-
-Inside tool:
-
-```python id="p23a"
-interrupt(...)
-```
-
-Graph pauses.
-
-Checkpoint saved.
-
-Execution stops here.
-
----
-
-# 16. Human Response
-
-```python id="p24a"
-human_response = (
-    "We, the experts are here to help!"
-)
-```
-
-This simulates actual human feedback.
-
----
-
-# 17. Resume Execution
-
-```python id="p25a"
-humman_command = Command(
-    resume={"data" : human_response}
-)
-```
-
-`Command(resume=...)` tells LangGraph:
-
-```text id="p26a"
-Resume from interrupted point using this human response.
-```
-
----
-
-# 18. Graph Continues
-
-```python id="p27a"
-events = graph.stream(
-   humman_command,
-    config,
-    stream_mode="values"
-)
-```
-
-LangGraph:
-
-1. reloads checkpoint
-2. resumes interrupted tool
-3. injects human response
-4. tool returns response
-5. chatbot node runs again
-6. final AI response generated
-
----
-
-# Complete Flow 🚀
-
-```text id="p28a"
-User Query
-    ↓
-LLM reasons
-    ↓
-Tool call generated
-    ↓
-human_assistance tool runs
-    ↓
-interrupt() pauses graph
-    ↓
-Checkpoint saved
-    ↓
-External human response provided
-    ↓
-Command(resume=...)
-    ↓
-Graph resumes
-    ↓
-Tool returns human response
-    ↓
-LLM observes result
-    ↓
-Final AI response generated
-```
-
----
-
-# Why this is powerful 🎯
-
-This architecture enables:
-
-- human approval systems
-- AI copilots
-- escalation workflows
-- customer support handoff
-- supervisor review
-- enterprise HITL agents
-
-Basically:
-
-> AI can pause and ask humans when needed 😄
+So internally, the tool now receives the actual human-provided answer.
+
+- `return human_response["data"]` returns the human feedback as the tool output. LangGraph automatically converts this into a `ToolMessage` and appends it to the graph state.
+
+- The updated conversation history is then sent back to the LLM. The model observes:
+  - original user query
+  - tool call
+  - human response/tool output
+
+  and continues reasoning to generate the final response.
+
+- This pattern enables advanced Human-in-the-Loop workflows where AI systems can escalate tasks to humans whenever:
+  - expert approval is needed
+  - confidence is low
+  - sensitive decisions are involved
+  - manual verification is required
+  - enterprise escalation workflows are necessary.

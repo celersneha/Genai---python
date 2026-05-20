@@ -47,6 +47,18 @@ graph_builder.add_edge("tools", "chatbot")
 
 graph = graph_builder.compile(checkpointer=memory)
 
+## view
+from IPython.display import Image, display
+display(Image(graph.get_graph().draw_mermaid_png()))
+
+# for saving the graph image
+png_data = graph.get_graph().draw_mermaid_png()
+
+with open("graph.png", "wb") as f:
+    f.write(png_data)
+
+print("Graph image saved!")
+
 user_input = "I need some expert guidance for building an AI agent. Could you request assistance for me?"
 config = {"configurable" : {"thread_id": "1"}}
 
