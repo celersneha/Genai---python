@@ -12,3 +12,5 @@ langsmith
 langchain-mcp-adapters
 mcp
 langgraph-checkpoint-sqlite
+langgraph-cli[inmen]
+langgraph-api

@@ -75,3 +75,5 @@ Thumbs.db
 *.temp
 
 .langgraph_checkpoints.sqlite
+
+.langgraph_api
