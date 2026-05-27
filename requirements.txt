@@ -14,3 +14,10 @@ mcp
 langgraph-checkpoint-sqlite
 langgraph-cli[inmen]
 langgraph-api
+PyMuPDF
+transformers
+torch
+numpy
+scikit-learn
+pillow
+langchain-text-splitters

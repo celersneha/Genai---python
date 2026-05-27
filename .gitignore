@@ -77,3 +77,4 @@ Thumbs.db
 .langgraph_checkpoints.sqlite
 
 .langgraph_api
+/Multimodal_RAG
