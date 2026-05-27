@@ -78,3 +78,4 @@ Thumbs.db
 
 .langgraph_api
 /Multimodal_RAG
+vector_store/

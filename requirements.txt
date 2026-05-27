@@ -21,3 +21,8 @@ numpy
 scikit-learn
 pillow
 langchain-text-splitters
+pypdf
+ipykernel
+sentence-transformers
+faiss-cpu
+chromadb

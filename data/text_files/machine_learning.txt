@@ -1,0 +1,20 @@
+Machine Learning is a branch of Artificial Intelligence that enables systems
+to learn patterns from data and make predictions or decisions without being
+explicitly programmed.
+
+Types of Machine Learning:
+- Supervised Learning
+- Unsupervised Learning
+- Reinforcement Learning
+
+Popular Libraries:
+- Scikit-learn
+- TensorFlow
+- PyTorch
+
+Applications:
+- Recommendation Systems
+- Chatbots
+- Fraud Detection
+- Image Recognition
+- Predictive Analytics
