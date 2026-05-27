@@ -72,3 +72,38 @@ The retriever itself usually does not store data — the vector store does that.
 Retriever mainly provides a cleaner retrieval API 🚀
 
 ![alt text](Architecture.png)
+
+![alt text](augmented_generation.png)
+
+```python
+context = "\n\n".join([doc['content'] for doc in results])
+```
+
+### Example
+
+If:
+
+```python
+results = [
+    {'content': 'Python is easy to learn.'},
+    {'content': 'Python is used in AI.'},
+    {'content': 'Python supports automation.'}
+]
+```
+
+Then:
+
+```python
+context = "\n\n".join([doc['content'] for doc in results])
+print(context)
+```
+
+### Output
+
+```text
+Python is easy to learn.
+
+Python is used in AI.
+
+Python supports automation.
+```

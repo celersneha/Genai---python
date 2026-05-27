@@ -314,5 +314,99 @@ class RagRetriever:
             return []
         
 rag_retriever = RagRetriever(vector_store, embedding_manager)
-res = rag_retriever.retrieve("what is the tech stack of calmhive?")
-print(f"🔍Result: \n\n{res}")
+# res = rag_retriever.retrieve("what is the tech stack of calmhive?")
+# print(f"🔍Result: \n\n{res}")
+
+### Integrating LLM
+from dotenv import load_dotenv
+import os
+from langchain_groq import ChatGroq
+load_dotenv()
+
+## initialize groq
+groq_api_key = os.getenv("GROQ_API_KEY")
+
+llm = ChatGroq(model="qwen/qwen3-32b", temperature=0.1, max_tokens=1024)
+
+## simple rag function: retrieve context + generate response
+
+def rag_simple(query: str, llm,retriever,  top_k=3):
+    
+    ## retrieve context
+    results = retriever.retrieve(query, top_k=top_k)
+    
+    context = "\n\n".join([doc['content'] for doc in results]) if results else ""
+    
+    if not context:
+        return "No relevant context found"
+    
+    # generate answer using groq
+    prompt=f"""Use the following context to answer the question concisely.
+        Context:
+        {context}
+        Question: {query}
+        
+        Answer:
+        """
+        
+    response = llm.invoke([prompt.format(context=context, query=query)])
+    
+    return response.content
+
+# answer = rag_simple("What is the tech stack of calmhive?", llm, rag_retriever)
+# print(answer)
+
+### Advanced Rag
+def rag_advanced(query, retriever, llm, top_k = 5, min_score=0.2, return_context=False):
+    """
+    RAG pipeline with extra feature:
+    - Returns answer, sources, confidence score, and optionally full context
+    """
+    results = retriever.retrieve(query, top_k=top_k, score_threshold = min_score)
+    if not results:
+        return {'answer':'No relevant context found.', 'sources':[], 'confidence': 0.0, 'context': ''}
+    
+    # Prepare context and sources
+    context = "\n\n".join([doc['content'] for doc in results])
+    sources = [{
+    'source': doc['metadata'].get('source_file', doc['metadata'].get('source', 'unknown')),
+    'page': doc['metadata'].get('page', 'unknown'),
+    'score': doc['similarity_score'],
+    'preview': doc['content'][:300] + "..."
+    } for doc in results]
+
+    confidence = max([doc['similarity_score'] for doc in results])
+    
+    prompt=f"""Use the following context to answer the question concisely.
+        Context:
+        {context}
+        Question: {query}
+        
+        Answer:
+        """
+        
+    response = llm.invoke([prompt.format(context=context, query=query)])
+    
+    output = {
+        'answer' : response.content,
+        'sources': sources,
+        'confidence' : confidence
+    }
+    if return_context:
+        output['context'] = context
+    return output
+
+# Example usage
+result = rag_advanced(
+    "What are the systems similar to calmhiv usecase?",
+    rag_retriever,
+    llm,
+    top_k=3,
+    min_score=0.1,
+    return_context=True
+)
+
+print("Answer:", result['answer'])
+print("Sources:", result['sources'])
+print("Confidence:", result['confidence'])
+print("Context Preview:", result['context'][:300])
